@@ -1,0 +1,6 @@
+inputs (all nearest,clamped):
+
+ BufA: BufA
+ BufB: BufA, BufB, BufC
+ BufC: BufA, BufB, BufC
+ image: BufA, BufB, BufC
