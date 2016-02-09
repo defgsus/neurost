@@ -13,8 +13,8 @@
  
 // ------- config --------
 
-const float INIT_VARIANCE = 0.05;
-const float LEARNRATE = 0.1;
+const float INIT_VARIANCE = 0.1;
+const float LEARNRATE = 0.01;
 
 #define NUM_LAYER      	3
 #define NUM_INPUT		(16*16)

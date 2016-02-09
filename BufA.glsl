@@ -1,13 +1,35 @@
-//just added squiggly numbers -eiffie
 // 
 // NETWORK INPUT
 //
 // renders a 16x16 random digit at 0,1
 // and a 10x1 expected network output at 0,0 (the class of the digit)
-// additionally renders a digit at 16,1 for testing the network
+// user can draw an image at 16,1 that will be analyzed
 
-#define SMEAR
-#define SCALE_AND_DISPLACE
+// ------- config --------
+
+#define NUM_LAYER      	3
+#define DO_TRAIN		1
+
+// define to add random distortions for training
+//#define SMEAR
+// define to add random scale and offset for training
+//#define SCALE_AND_DISPLACE
+
+// ----- end config ------
+
+
+
+// ------------ auto config ------------
+
+#if DO_TRAIN != 0
+	#define NUM_FRAME_HOLD (NUM_LAYER*2)
+#else
+	#define NUM_FRAME_HOLD (NUM_LAYER)
+#endif
+
+// ------------- end auto config -------------
+
+
 
 
 // ------------- pseudo handwritten digits ----------------
@@ -122,7 +144,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     // previous pixel
     fragColor = texture2D(iChannel0, fragCoord.xy / iResolution.xy);
 
-    int frame = int(mod(float(iFrame), float(2*2+3)));
+    int frame = int(mod(float(iFrame), float(NUM_FRAME_HOLD)));
     if (frame == 0)
     {
         if (fragCoord.x >= 192. || fragCoord.y >= 17.)discard;

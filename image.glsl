@@ -1,5 +1,3 @@
-// inputs: BufA, BufB, BufC
-
 //This is just a refactoring of bergi's digit classifier to handle written numbers
 //Find the original here: https://www.shadertoy.com/view/MdV3Wh
 
@@ -37,7 +35,7 @@ Digits in the lower left of the screen can be replaced with the current drawing 
    Restart to learn from scratch
 */
 
-
+#define NUM_LAYER 3
 
 
 float inputState(in ivec2 ip)
@@ -66,8 +64,8 @@ float inputState2(in ivec2 ip)
 
 float outputState2(in int op)
 {
-    vec2 p = vec2(float(op)+.5, 1.5) / iChannelResolution[1].xy;
-    return texture2D(iChannel1, p).x;
+    vec2 p = vec2(float(op)+.5, .5) / iChannelResolution[3].xy;
+    return texture2D(iChannel3, p).x;
 }
 
 float weight(in int inCell, in int outCell)
@@ -181,28 +179,34 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 	vec2 uv = fragCoord.xy / iResolution.y;
     vec2 pixel = uv * 200.;
     
-    if (pixel.y >= 196.)
+    // display states
+    float stateZoom=5.;
+    float y1 = 200.-stateZoom*float(NUM_LAYER);
+    float y2 = 200.-stateZoom*2.*float(NUM_LAYER);
+    if (pixel.y >= y1)
     {
-		float v = texLookup(iChannel1, (pixel - vec2(0., 196.)) / 4.);
+		float v = texLookup(iChannel1, (pixel - vec2(0., y1)) / stateZoom + vec2(0., -.5));
         fragColor = vec4(v, v, v, 1.);
     }
-    else if (false)//pixel.y >= 190. && pixel.y < 194.)
+    // display errors
+    else if (pixel.y >= y2)
     {
-		float v = texLookup(iChannel1, (pixel - vec2(0., 190.+20.)) / 4.);
+		float v = texLookup(iChannel1, (pixel - vec2(0., y2)) / stateZoom + vec2(0., 19.5));
         fragColor = vec4(signedColor(v), 1.);
-    }        
-    
-    
-    if(fragCoord.x<160. && fragCoord.y<16.){
-        fragColor=texture2D(iChannel0,(fragCoord+vec2(32.,0.0))/iResolution.xy);
-        return;
     }
     
-    vec3 col = classifier(fragCoord.xy - 25.);
-	col = max(col, testImage(fragCoord.xy - vec2(300., 25.)));
-    
-    // render weight matrix
+    // display training set
+    else if(fragCoord.x<160. && fragCoord.y<16.)
     {
+        fragColor=texture2D(iChannel0,(fragCoord+vec2(32.,0.0))/iResolution.xy);
+    }
+
+    else
+    {
+        vec3 col = classifier(fragCoord.xy - 25.);
+        col = max(col, testImage(fragCoord.xy - vec2(300., 25.)));
+
+        // render weight matrix
         float x=floor(fragCoord.x/3.-5.),y=floor(fragCoord.y/3. - 75.);
         float X=y*16.+mod(x,16.),Y=floor(x/16.);
         int inCell = int(X);//fragCoord.x/2. - 10.);
@@ -212,13 +216,23 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
             float w = 10.*weight(inCell, outCell);
     		col = vec3(max(0., w), 0., max(0.,-w));
         }
+
+        fragColor = vec4(col, 1.);
+        
+        // reset button
+        vec2 ms=fragCoord.xy/iResolution.xy-0.5;
+        if(length(ms)<0.035)fragColor=vec4(1.0,0.0,0.0,1.0);
+    
     }
-    fragColor = vec4(col, 1.);
-    vec2 ms=fragCoord.xy/iResolution.xy-0.5;
-    if(length(ms)<0.035)fragColor=vec4(1.0,0.0,0.0,1.0);
-    
-    
-	fragColor += vec4(signedColor(texture2D(iChannel2, uv/3.0).x), 1.);
+
+  	fragColor += vec4(signedColor(texture2D(iChannel1, uv/7.0).x), 1.);
+
+    // display all weights
+    fragColor += vec4(signedColor(texture2D(iChannel2, uv/3.0).x), 1.);
     //fragColor += vec4(texture2D(iChannel2, uv/2.0).xyz, 1.);
+
+    // print frame number
+    int frame = int(mod(float(iFrame), 4.));
+    fragColor.xyz = max(fragColor.xyz, vec3(digit(uv*12. + vec2(-1., -3.5), frame)));
 }
 

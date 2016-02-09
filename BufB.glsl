@@ -25,12 +25,17 @@
 #define NUM_CELLS_2		10
 #define NUM_CELLS_3		NUM_OUTPUT
 
-// http://www.musicdsp.org/showone.php?id=238
-float Tanh(in float x) { return clamp(x * (27. + x * x) / (27. + 9. * x * x), -1., 1.); }
+#if 0
+	float activation(in float x) { return x; }
+	float derivative(in float x) { return 1.; }
+#else
+    // http://www.musicdsp.org/showone.php?id=238
+    float Tanh(in float x) { return clamp(x * (27. + x * x) / (27. + 9. * x * x), -1., 1.); }
 
-// activation function
-float activation(in float x) { return Tanh(x); }
-float derivative(in float x) { return 1. - x * x; }
+    // activation function
+    float activation(in float x) { return Tanh(x); }
+    float derivative(in float x) { return 1. - x * x; }
+#endif
 
 // ----- end config ------
 
@@ -265,23 +270,24 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     if (frame == NUM_LAYER)
     {
         if (curY == error_y[NUM_LAYER-1] && curCell < NUM_OUTPUT)
-            fragColor = TYPE_TO_VEC4(
-                derivative(
-                	expectedOutputState(curCell) 
-                		- cellState(NUM_LAYER-1, curCell)
-            	));
+        {
+            TYPE val = cellState(NUM_LAYER-1, curCell);
+            TYPE err = expectedOutputState(curCell) - val;
+            
+            fragColor = TYPE_TO_VEC4( derivative(val) * err );
+        }
     }
  
     // backprop error derivative
 #if NUM_LAYER > 3
-    if (frame == NUM_LAYER+1)
+    if (frame == NUM_FRAME_HOLD-3)
     {
         if (curY == error_y[2] && curCell < num_cells[2])
 			fragColor = TYPE_TO_VEC4( bprop(3, curCell) );
     }
 #endif
 #if NUM_LAYER > 2
-    if (frame == NUM_LAYER+2)
+    if (frame == NUM_FRAME_HOLD-2)
     {
         if (curY == error_y[1] && curCell < num_cells[1])
 			fragColor = TYPE_TO_VEC4( bprop(2, curCell) );
@@ -289,7 +295,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 #endif
     #if 1
     // backprop into input layer
-    if (frame == NUM_LAYER+3)
+    if (frame == NUM_FRAME_HOLD-1)
     {
         if (curY == error_y[0] && curCell < num_cells[0])
 			fragColor = TYPE_TO_VEC4( bprop(1, curCell) );
