@@ -1,14 +1,16 @@
-//
-// WEIGHT INITIALIZATION
-// AND GRADIENT DESCENT LEARNING
-//
-// renders a 256x10 weight matrix
-//
-// first two animation frames initialize randomly
-// after that, the expected and real network output are compared
-// and the error derivative is used to adjust the weights
-//
+/* 
+ * NeuroST - https://github.com/defgsus/neurost
+ * (c) 0x7e0, Stefan Berke
+ * License Creative Commons Attribution 3.0 Unported 
+ * 
+ */ 
 
+/* * * Gradient descent * * *
+ 
+ Description at https://github.com/defgsus/neurost/blob/master/idea.txt 
+*/
+
+ 
 // ------- config --------
 
 const float INIT_VARIANCE = 0.05;
@@ -78,7 +80,11 @@ void _initLayer()
 }
 
 #define NUM_HIDDEN_LAYER (NUM_LAYER - 2)
-#define NUM_FRAME_HOLD (NUM_HIDDEN_LAYER*2+3)
+#if DO_TRAIN != 0
+	#define NUM_FRAME_HOLD (NUM_LAYER*2)
+#else
+	#define NUM_FRAME_HOLD (NUM_LAYER)
+#endif
 
 // ------------- end auto config -------------
 
@@ -192,6 +198,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         
         fragColor = vec4(vec3(w), 1.0);
     }
+    // LEARN STEP
     else if (iFrame >= NUM_FRAME_HOLD)
     {
 		int frame = int(mod(float(iFrame), float(NUM_FRAME_HOLD)));

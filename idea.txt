@@ -1,0 +1,76 @@
+
+suppose:
+
+         output
+           /\
+        hidden 2
+           /\
+        hidden 1
+           /\
+          input
+          
+          
+layout of states & error (Buf B)
+
+           |input error der. (optional)
+           |hidden 1 error der.
+           |hidden 2 error der...
+         20|output error der..
+           |
+           |input states....
+           |hidden states 1....
+           |hidden states 2......
+          0|output states.....
+         y +---------------- . . 
+          x 0              ~300
+
+
+layout of weights (Buf C)
+
+           |t...........
+           |u...........
+  hid1+hid2|o hid2......
+           |2.............
+           |d.............
+           |i.............
+       hid1|h hid1........
+           |1.........
+           |d.........
+           |i.........
+          0|h input...
+        y  +---------------- . . 
+          x 0              ~300
+
+
+process:
+
+  - Buf A
+    render training input              // frame 0
+    render expected output             // frame 0
+    (render test input)	               // frame 0
+    // hold for NUM_LAYERS * 2 frames 
+    // (NUM_LAYERS * 1 when not training)
+
+  - Buf B
+    copy input states                  // frame 0
+    fprop(input, hidden1)              // frame 1
+    fprop(hidden1, hidden2)            // frame 2
+    fprop(hidden2, output)             // frame 3
+
+  (when training)
+
+    calc_derivative(output - expected) // frame 4
+    bprop(output, hidden2)             // frame 5
+    bprop(hidden2, hidden1)            // frame 6
+    // optionally for displaying error in input
+    bprop(hidden1, input)              // frame 7
+ 
+  - Buf C
+    adjust_weights(hidden2, output,  output error der)   // frame 5 
+    adjust_weights(hidden1, hidden1, hidden2 error der)  // frame 6
+    adjust_weights(hidden1, input,   hidden1 error der)  // frame 7
+
+
+
+  
+

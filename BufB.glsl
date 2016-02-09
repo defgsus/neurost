@@ -1,79 +1,15 @@
-//I switched the order of forward and back prop - eiffie
-// FORWARD PROPAGATION
-//
-// takes a 16x16 input (chan0) and a 256x10 weight matrix (chan1)
-// and renders a 10x1 output
-/*
-         output
-           /\
-        hidden 2
-           /\
-        hidden 1
-           /\
-          input
+/* 
+ * NeuroST - https://github.com/defgsus/neurost
+ * (c) 0x7e0, Stefan Berke
+ * License Creative Commons Attribution 3.0 Unported 
+ * 
+ */ 
 
-
-        states & error (Buf B)
-
-      |input error der. (optional)
-      |hidden 1 error der.
-      |hidden 2 error der...
-    20|output error der..
-      |
-      |input states....
-      |hidden states 1....
-      |hidden states 2......
-     0|output states.....
-    y +---------------- . . 
-     x 0              ~300
-
-
-        weights (Buf C)
-
-         |t...........
-		 |u...........
-     hid1|o hid2......
-    +hid2|2.............
-         |d.............
-         |i.............
-     hid1|h hid1........
-         |1.........
-         |d.........
-         |i.........
-        0|h input...
-      y  +---------------- . . 
-        x 0              ~300
-
-   
-
-  - Buf A
-    draw training digit     // frame 0
-	(draw expected output)  // frame 0
-    (draw test digit)		// frame 0
-    // hold for NUM_LAYERS + 4 frames 
-
-  - Buf B
-	copy input states		// frame 0
-    fprop(input, hidden)    // frame 1
-	fprop(hidden1, hidden2) // frame 2
-	fprop(hidden2, output)  // frame 3
-
-  (when training)
-
-    calc_derivative(output - expected) // frame 4
-	bprop(output, hidden2)             // frame 5
-	bprop(hidden2, hidden1)            // frame 6
-    // optionally for displaying error in input
-	bprop(hidden1, input)              // frame 7
+/* * * Forward pass, error derivative, backward pass * * *
  
-  - Buf C
-    adjust_weights(hidden2, output,  output error der)   // frame 5 
-	adjust_weights(hidden1, hidden1, hidden2 error der)  // frame 6
-	adjust_weights(hidden1, input,   hidden1 error der)  // frame 7
-	
-
-  
+ Description at https://github.com/defgsus/neurost/blob/master/idea.txt 
 */
+
 
 
 // ------- config --------
@@ -163,6 +99,11 @@ vec4 derivative(in vec4 x) {
     return vec4(derivative(x.x), derivative(x.y), derivative(x.z), derivative(x.w)); }
 
 #define NUM_HIDDEN_LAYER (NUM_LAYER - 2)
+#if DO_TRAIN != 0
+	#define NUM_FRAME_HOLD (NUM_LAYER*2)
+#else
+	#define NUM_FRAME_HOLD (NUM_LAYER)
+#endif
 
 // ------------- end auto config -------------
 
@@ -285,7 +226,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     // previous pixel
     fragColor = texture2D(iChannel1, fragCoord.xy / iResolution.xy);
 
-    int frame = int(mod(float(iFrame), float(NUM_LAYER*2+3)));
+    int frame = int(mod(float(iFrame), float(NUM_FRAME_HOLD)));
     int curCell = int(fragCoord.x);
     int curY = int(fragCoord.y);
 	
@@ -321,7 +262,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
 #if DO_TRAIN != 0    
     // calc output error derivative
-    if (frame == NUM_LAYER-1)
+    if (frame == NUM_LAYER)
     {
         if (curY == error_y[NUM_LAYER-1] && curCell < NUM_OUTPUT)
             fragColor = TYPE_TO_VEC4(
@@ -333,14 +274,14 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
  
     // backprop error derivative
 #if NUM_LAYER > 3
-    if (frame == NUM_LAYER)
+    if (frame == NUM_LAYER+1)
     {
         if (curY == error_y[2] && curCell < num_cells[2])
 			fragColor = TYPE_TO_VEC4( bprop(3, curCell) );
     }
 #endif
 #if NUM_LAYER > 2
-    if (frame == NUM_LAYER+1)
+    if (frame == NUM_LAYER+2)
     {
         if (curY == error_y[1] && curCell < num_cells[1])
 			fragColor = TYPE_TO_VEC4( bprop(2, curCell) );
@@ -348,7 +289,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 #endif
     #if 1
     // backprop into input layer
-    if (frame == NUM_LAYER+2)
+    if (frame == NUM_LAYER+3)
     {
         if (curY == error_y[0] && curCell < num_cells[0])
 			fragColor = TYPE_TO_VEC4( bprop(1, curCell) );
