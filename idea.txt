@@ -13,9 +13,9 @@ suppose:
 layout of states & error (Buf B)
 
            |input error der. (optional)
-           |hidden 1 error der.
-           |hidden 2 error der...
-         20|output error der..
+           |hidden 1 error.....
+           |hidden 2 error.......
+         20|output error......
            |
            |input states....
            |hidden states 1....
@@ -59,16 +59,16 @@ process:
 
   (when training)
 
-    calc_derivative(output - expected) // frame 4
+    calc_error(output - expected)      // frame 4
     bprop(output, hidden2)             // frame 5
     bprop(hidden2, hidden1)            // frame 6
     // optionally for displaying error in input
     bprop(hidden1, input)              // frame 7
  
   - Buf C
-    adjust_weights(hidden2, output,  output error der)   // frame 5 
-    adjust_weights(hidden1, hidden1, hidden2 error der)  // frame 6
-    adjust_weights(hidden1, input,   hidden1 error der)  // frame 7
+    adjust_weights(hidden2, output,  output error)   // frame 5 
+    adjust_weights(hidden1, hidden1, hidden2 error)  // frame 6
+    adjust_weights(hidden1, input,   hidden1 error)  // frame 7
 
 
 

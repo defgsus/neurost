@@ -13,8 +13,8 @@
  
 // ------- config --------
 
-const float INIT_VARIANCE = 0.1;
-const float LEARNRATE = 0.01;
+const float INIT_VARIANCE = 0.01;
+const float LEARNRATE = 0.04;
 
 #define NUM_LAYER      	3
 #define NUM_INPUT		(16*16)
@@ -23,9 +23,24 @@ const float LEARNRATE = 0.01;
 #define DO_TRAIN		1
 
 #define NUM_CELLS_0     NUM_INPUT
-#define NUM_CELLS_1		40
-#define NUM_CELLS_2		10
+#define NUM_CELLS_1		200
+#define NUM_CELLS_2		NUM_OUTPUT
 #define NUM_CELLS_3		NUM_OUTPUT
+
+// activation function
+#if 0
+	float activation(in float x) { return x; }
+	float derivative(in float x) { return 1.; }
+#elif 1
+    // http://www.musicdsp.org/showone.php?id=238
+    float Tanh(in float x) { return clamp(x * (27. + x * x) / (27. + 9. * x * x), -1., 1.); }
+
+    float activation(in float x) { return Tanh(x); }
+    float derivative(in float x) { return 1. - x * x; }
+#else
+    float activation(in float x) { return 1./(1.+exp(-x)); }
+    float derivative(in float x) { return x * (1. - x); }
+#endif
 
 // ----- end config ------
 
@@ -85,6 +100,20 @@ void _initLayer()
 #else
 	#define NUM_FRAME_HOLD (NUM_LAYER)
 #endif
+
+// automatic type overloads for activation()
+vec2 activation(in vec2 x) {
+    return vec2(activation(x.x), activation(x.y)); }
+vec3 activation(in vec3 x) {
+    return vec3(activation(x.x), activation(x.y), activation(x.z)); }
+vec4 activation(in vec4 x) {
+    return vec4(activation(x.x), activation(x.y), activation(x.z), activation(x.w)); }
+vec2 derivative(in vec2 x) {
+    return vec2(derivative(x.x), derivative(x.y)); }
+vec3 derivative(in vec3 x) {
+    return vec3(derivative(x.x), derivative(x.y), derivative(x.z)); }
+vec4 derivative(in vec4 x) {
+    return vec4(derivative(x.x), derivative(x.y), derivative(x.z), derivative(x.w)); }
 
 // ------------- end auto config -------------
 
@@ -147,17 +176,20 @@ TYPE weight(in int layer, in int inCell, in int outCell)
 
 // -------- end states & values -------
 
+
+
 // train the weight between fromCell (layer-1) and toCell (layer)
 // using error derivative (layer) and input state (layer-1)
 TYPE adjust_weight(in int layer, in int fromCell, in int toCell)
 {
     TYPE w = weight(layer, fromCell, toCell);
     
-    TYPE der = cellError(layer, toCell);
-    TYPE inp = cellState(layer-1, fromCell);
+    TYPE err =  cellError(layer, toCell);
+    TYPE outp = cellState(layer, toCell);
+    TYPE inp =  cellState(layer-1, fromCell);
     
     // partial derivative w.r.t input state
-    w += LEARNRATE * der * inp;
+    w += LEARNRATE * derivative(outp) * err * inp;
     
     return w;
 }
@@ -179,7 +211,11 @@ float hash(vec2 p)
 	return fract(p.x * p.y * 95.4337);
 }
 
-
+bool isInRect(in vec2 pos, in vec2 size, in vec2 point)
+{
+    return point.x >= pos.x && point.y >= pos.y
+        && point.x < pos.x + size.x && point.y < pos.y + size.y;
+}
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
@@ -191,8 +227,23 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     // previous pixel
     fragColor = texture2D(iChannel2, fragCoord.xy / iResolution.xy);
 
+    // ui 
+    bool isBrainwash = false;
+    
+    if (iMouse.z > .5)
+    {
+		vec2 muv = iMouse.xy / iResolution.y;
+    	float uvWidth = iResolution.x / iResolution.y;
+
+    	// brainwash button
+        if (isInRect(vec2(uvWidth-.1, 0.), vec2(.1), muv))
+            isBrainwash = true;
+		
+    }
+    
+    
     // INIT WEIGHTS
-    if (iFrame == 0)
+    if (iFrame == 0 || isBrainwash)
     {
         float w = (hash(fragCoord + iDate.zw)-.5)*2. * INIT_VARIANCE;
         
@@ -229,7 +280,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
             }
 			
             if (inCell < numIn && outCell < numOut 
-                && layer < NUM_LAYER)
+                && layer < NUM_LAYER
+                //&& layer > 1
+               )
             {
             	fragColor = TYPE_TO_VEC4(
                     adjust_weight(layer, inCell, outCell) 

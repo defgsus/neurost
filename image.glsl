@@ -36,6 +36,13 @@ Digits in the lower left of the screen can be replaced with the current drawing 
 */
 
 #define NUM_LAYER 3
+#define DO_TRAIN 1
+
+#if DO_TRAIN != 0
+	#define NUM_FRAME_HOLD (NUM_LAYER*2)
+#else
+	#define NUM_FRAME_HOLD (NUM_LAYER)
+#endif
 
 
 float inputState(in ivec2 ip)
@@ -172,11 +179,31 @@ vec3 signedColor(in float x)
     return vec3(0., max(0., x), max(0., -x));
 }
 
+// by iq (post in https://www.shadertoy.com/view/MsG3Ry)
+float drawRect(vec2 uv, vec2 pos, vec2 size) 
+{
+    size *= .5;
+    vec2 r = abs(uv - pos - size) - size;
+    return step(max(r.x, r.y), 0.);
+}
+
+void nnDrawUi(inout vec4 fragColor, in vec2 fragCoord, in vec2 resolution)
+{
+	vec2 uv = fragCoord.xy / iResolution.y;
+    float uvWidth = iResolution.x / iResolution.y;
+
+    // brainwash button
+    fragColor.x += drawRect(uv, vec2(uvWidth-.1, 0.), vec2(.1));
+    
+    fragColor = clamp(fragColor, 0., 1.);
+}
+
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     fragColor = vec4(0., 0., 0., 1.);
     
 	vec2 uv = fragCoord.xy / iResolution.y;
+    
     vec2 pixel = uv * 200.;
     
     // display states
@@ -214,7 +241,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         if (inCell >= 0 && inCell < 256 && outCell >= 0 && outCell < 10)
         {
             float w = 10.*weight(inCell, outCell);
-    		col = vec3(max(0., w), 0., max(0.,-w));
+    		col = signedColor(w);
         }
 
         fragColor = vec4(col, 1.);
@@ -224,15 +251,18 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         if(length(ms)<0.035)fragColor=vec4(1.0,0.0,0.0,1.0);
     
     }
+    
+	nnDrawUi(fragColor, fragCoord, iResolution.xy);
+    
+    // states overlay
+  	//fragColor += vec4(signedColor(texture2D(iChannel1, uv/7.0).x), 1.);
 
-  	fragColor += vec4(signedColor(texture2D(iChannel1, uv/7.0).x), 1.);
-
-    // display all weights
-    fragColor += vec4(signedColor(texture2D(iChannel2, uv/3.0).x), 1.);
+    // weights overlay
+    fragColor += vec4(signedColor(40.*texture2D(iChannel2, uv/1.3).x), 1.);
     //fragColor += vec4(texture2D(iChannel2, uv/2.0).xyz, 1.);
 
     // print frame number
-    int frame = int(mod(float(iFrame), 4.));
+    int frame = int(mod(float(iFrame), float(NUM_FRAME_HOLD)));
     fragColor.xyz = max(fragColor.xyz, vec3(digit(uv*12. + vec2(-1., -3.5), frame)));
 }
 

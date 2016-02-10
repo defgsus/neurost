@@ -5,9 +5,12 @@
  * 
  */ 
 
-/* * * Forward pass, error derivative, backward pass * * *
+/* * * Forward pass * * *
  
  Description at https://github.com/defgsus/neurost/blob/master/idea.txt 
+
+ Quickfix: DO_TRAIN is needed for correct frame count
+ but is manually disabled in mainImage() to save cycles
 */
 
 
@@ -89,7 +92,7 @@ void _initLayer()
     int y = 0;
     weight_y[0] = y; y += NUM_CELLS_1;
     weight_y[1] = y; y += NUM_CELLS_2;
-    weight_y[2] = y; //y += NUM_CELLS_3;
+    weight_y[2] = y; y += NUM_CELLS_3;
 }
 
 // automatic type overloads for activation()
@@ -130,7 +133,7 @@ TYPE externalInputState(in int cellIdx)
 {
     ivec2 ip = ivec2(int(mod(float(cellIdx), 16.)),
                      cellIdx / 16);
-    return texLookup(iChannel0, ip + ivec2(0, 1));
+    return texLookup(iChannel0, ip + ivec2(16, 1));
 }
 
 TYPE expectedOutputState(in int cellIdx)
@@ -162,11 +165,11 @@ TYPE weight(in int layer, in int inCell, in int outCell)
     else if (layer == 2)
 	    return texLookup(iChannel2, 
                      ivec2(inCell, 
-                           outCell + NUM_CELLS_1));
+                           outCell + NUM_CELLS_0));
     else if (layer == 3)
 	    return texLookup(iChannel2, 
                      ivec2(inCell, 
-                           outCell + NUM_CELLS_1 + NUM_CELLS_2));
+                           outCell + NUM_CELLS_0 + NUM_CELLS_1));
     else 
         return TYPE(0.); 
 }
@@ -183,7 +186,7 @@ TYPE fprop(in int layer, in int outCell)
 
     if (layer == 1)
     {
-        for (int i = 0; i < NUM_CELLS_0; ++i)
+        for (int i = 0; i < NUM_CELLS_0/2; ++i)
             sum += weight(layer, i, outCell) * cellState(layer-1, i);
     }
     else if (layer == 2)
@@ -196,9 +199,6 @@ TYPE fprop(in int layer, in int outCell)
         for (int i = 0; i < NUM_CELLS_2; ++i)
             sum += weight(layer, i, outCell) * cellState(layer-1, i);
     }
-    else
-        // kind of error indicator
-        sum = TYPE(1.);
 
     return activation(sum);
 }
@@ -224,9 +224,6 @@ TYPE bprop(in int layer, in int inCell)
         for (int i = 0; i < NUM_CELLS_3; ++i)
             sum += weight(layer, inCell, i) * cellError(layer, i);
     }
-    else
-        // kind of error indicator
-        sum = TYPE(1.);
 
     return activation(sum);
 }
@@ -274,7 +271,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 #endif
     
     
-#if DO_TRAIN != 0    
+#if 0 //DO_TRAIN != 0    
     // calc output error derivative
     if (frame == NUM_LAYER)
     {
@@ -283,20 +280,20 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
             TYPE val = cellState(NUM_LAYER-1, curCell);
             TYPE err = expectedOutputState(curCell) - val;
             
-            fragColor = TYPE_TO_VEC4( err );//derivative(val) * err );
+            fragColor = TYPE_TO_VEC4( derivative(val) * err );
         }
     }
  
     // backprop error derivative
 #if NUM_LAYER > 3
-    if (frame == NUM_FRAME_HOLD-3)
+    if (frame == NUM_LAYER+1)
     {
         if (curY == error_y[2] && curCell < num_cells[2])
 			fragColor = TYPE_TO_VEC4( bprop(3, curCell) );
     }
 #endif
 #if NUM_LAYER > 2
-    if (frame == NUM_FRAME_HOLD-2)
+    if (frame == NUM_LAYER+2)
     {
         if (curY == error_y[1] && curCell < num_cells[1])
 			fragColor = TYPE_TO_VEC4( bprop(2, curCell) );
@@ -304,7 +301,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 #endif
     #if 1
     // backprop into input layer
-    if (frame == NUM_FRAME_HOLD-1)
+    if (frame == NUM_LAYER+3)
     {
         if (curY == error_y[0] && curCell < num_cells[0])
 			fragColor = TYPE_TO_VEC4( bprop(1, curCell) );

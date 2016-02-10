@@ -1,9 +1,11 @@
 // 
 // NETWORK INPUT
 //
+// code by eiffie, FabriceNeyret2, bergi ...
+//
 // renders a 16x16 random digit at 0,1
 // and a 10x1 expected network output at 0,0 (the class of the digit)
-// user can draw an image at 16,1 that will be analyzed
+// user can draw an image that will be analyzed
 
 // ------- config --------
 
@@ -11,7 +13,7 @@
 #define DO_TRAIN		1
 
 // define to add random distortions for training
-//#define SMEAR
+#define SMEAR
 // define to add random scale and offset for training
 //#define SCALE_AND_DISPLACE
 
@@ -144,7 +146,25 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     // previous pixel
     fragColor = texture2D(iChannel0, fragCoord.xy / iResolution.xy);
 
-    int frame = int(mod(float(iFrame), float(NUM_FRAME_HOLD)));
+    //ui
+    if(iMouse.z>0.0){//clicked
+        if(iMouse.y<16. && floor(fragCoord.x/16.)==floor(iMouse.x/16.)+2.){//replace training char with handwritten version
+            float x=floor(iMouse.x/16.)*16.;
+            fragColor=texture2D(iChannel0,vec2(mod(fragCoord.x,16.)+16.,fragCoord.y)/iResolution.xy);
+            return;
+        }
+        if(fragCoord.x>=32.)return;
+        vec2 ms=iMouse.xy/iResolution.xy-0.5;
+        if(length(ms)<0.035)fragColor.rgb=vec3(0.0); //clear handwriting
+        else{
+            ms=ms2Dig(iMouse.xy);//record handwriting
+            float d=length(ms-fragCoord.xy);
+            d=smoothstep(1.5,0.0,d);
+            fragColor.rgb=max(fragColor.rgb,vec3(d));
+        }
+    }
+
+    int frame = int(mod(float(iFrame), float(NUM_FRAME_HOLD)));    
     if (frame == 0)
     {
         if (fragCoord.x >= 192. || fragCoord.y >= 17.)discard;
@@ -163,23 +183,6 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
                 fragColor.rgb = digit == int(fragCoord.x) ? vec3(.7) : vec3(0.);
             }
             return;
-        }
-        //ui
-        if(iMouse.z>0.0){//clicked
-            if(iMouse.y<16. && floor(fragCoord.x/16.)==floor(iMouse.x/16.)+2.){//replace training char with handwritten version
-                float x=floor(iMouse.x/16.)*16.;
-                fragColor=texture2D(iChannel0,vec2(mod(fragCoord.x,16.)+16.,fragCoord.y)/iResolution.xy);
-                return;
-            }
-            if(fragCoord.x>=32.)return;
-            vec2 ms=iMouse.xy/iResolution.xy-0.5;
-            if(length(ms)<0.035)fragColor.rgb=vec3(0.0); //clear handwriting
-            else{
-                ms=ms2Dig(iMouse.xy);//record handwriting
-                float d=length(ms-fragCoord.xy);
-                d=smoothstep(1.5,0.0,d);
-                fragColor.rgb=max(fragColor.rgb,vec3(d));
-            }
         }
     }
 }
